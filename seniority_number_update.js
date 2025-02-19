@@ -5,31 +5,55 @@ const sql = postgres(process.env.DATABASE_URL, {
     ssl: 'require'
 });
 
-const createSeniorityTable = async () => {
-    await sql`
-        CREATE TABLE IF NOT EXISTS seniority_numbers (
-            id INTEGER PRIMARY KEY,
-            seniority_number INTEGER NOT NULL
-        )
-    `;
-};
+async function updateUnionSeniorityNumbers() {
+    try {
+        console.log('We are in the seniority number function')
+        var seniority_numbers = await sql`
+            SELECT * FROM seniority_numbers WHERE seniority_number < 1500
+        `;
+        console.log(seniority_numbers.length);
+
+
+        for (let iCount = 0, iSeniority = 1; iCount < seniority_numbers.length; iCount++, iSeniority++) {
+            if (seniority_numbers[iCount].seniority_number !== iSeniority) {
+                var tempID = seniority_numbers[iCount].id; 
+                await sql`
+                    UPDATE seniority_numbers SET seniority_number = ${iSeniority} WHERE id = ${tempID}
+                `;
+            }
+        }
+
+
+    } catch (error) {
+        console.error('Error updating seniority numbers:', error);
+        throw error;
+    }
+}
 
 const seniorityNumberUpdate = async () => {
     try {
-        // Create table first
-        await createSeniorityTable();
-        
-        // Clear existing data if any
+        // Clear existing data
         await sql`TRUNCATE TABLE seniority_numbers`;
         
-        // Generate values for bulk insert
         const values = [];
+        let id = 1;
         
-        for (let id = 1, seniorityNum = 1; id <= 1000; id += 2, seniorityNum += 3) {
+        // First range: 1-1500
+        for (let seniorityNum = 1; seniorityNum <= 1500; seniorityNum += 3) {
             values.push({
                 id: id,
                 seniority_number: seniorityNum
             });
+            id += 2;
+        }
+        
+        // Second range: 3000-3500
+        for (let seniorityNum = 3000; seniorityNum <= 3500; seniorityNum += 3) {
+            values.push({
+                id: id,
+                seniority_number: seniorityNum
+            });
+            id += 2;
         }
         
         // Bulk insert all values
@@ -39,7 +63,7 @@ const seniorityNumberUpdate = async () => {
             }
         `;
         
-        console.log('Seniority numbers updated successfully');
+        console.log('Seniority numbers reset and updated successfully');
     } catch (error) {
         console.error('Error updating seniority numbers:', error);
         throw error;
